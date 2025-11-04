@@ -15,7 +15,7 @@ module.exports = async (request, response) => {
     }
 
     // 2. Definisce l'URL di Google (con il modello flash, come abbiamo corretto)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const url = `https://www.google.com/search?q=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent%3Fkey%3D${apiKey}`;
 
     try {
         // 3. Inoltra l'intero payload ricevuto da index.html a Google
