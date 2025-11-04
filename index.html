@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Esercitazione Analisi dei Conti</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Tahoma', sans-serif; }
+        /* Stile per i select personalizzati */
+        .custom-select {
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230B2027%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20128c3.6%203.6%207.8%205.4%2012.9%205.4s9.3-1.8%2012.9-5.4L287%2095c3.6-3.6%205.4-7.8%205.4-12.9%200-5-1.8-9.2-5.4-12.7z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 0.65em auto;
+            padding-right: 2.5rem;
+        }
+        /* Stili per la riga del quiz */
+        .quiz-row.row-correct { background-color: #f0fdf4; /* green-50 */ }
+        .quiz-row.row-incorrect { background-color: #fef2f2; /* red-50 */ }
+        
+        /* Stili per il modale (animazioni) */
+        .modal { transition: opacity 0.3s ease-out; }
+        .modal-content { transition: all 0.3s ease-out; }
+        
+        /* Stili Chat */
+        #chat-body { scrollbar-width: thin; scrollbar-color: #9ca3af #e5e7eb; }
+        #chat-body::-webkit-scrollbar { width: 6px; }
+        #chat-body::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 10px; }
+        #chat-body::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 10px; }
+        
+        /* Animazione "sta scrivendo" */
+        @keyframes dot-flashing { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+        .dot-flashing { display: flex; justify-content: space-around; width: 20px; }
+        .dot-flashing div { width: 4px; height: 4px; background: #9ca3af; border-radius: 50%; animation: 1.4s dot-flashing infinite linear; }
+        .dot-flashing div:nth-child(2) { animation-delay: 0.2s; }
+        .dot-flashing div:nth-child(3) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="setup-screen" class="max-w-xl mx-auto my-16 p-8 bg-white rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-900 mb-6">Esercitazione: Analisi dei Conti</h1>
+        <p class="text-center text-gray-600 mb-8">
+            Analizza la natura e la destinazione dei conti.
+        </p>
+        <div class="text-center">
+            <label for="account-count" class="block text-lg text-gray-700 mb-4">Quanti conti vuoi analizzare?</label>
+            <input type="number" id="account-count" min="20" value="20" class="w-48 p-3 border border-gray-300 rounded-lg text-center text-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div id="count-error" class="text-red-600 text-sm mt-2 h-6 hidden"></div>
+            <button id="start-btn" class="block w-full mx-auto mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-300 shadow-md">
+                Inizia Esercitazione
+            </button>
+        </div>
+    </div>
+
+    <div id="quiz-screen" class="max-w-6xl mx-auto my-8 p-6 md:p-8 bg-white rounded-xl shadow-lg hidden">
+        <div class="hidden md:grid grid-cols-4 gap-4 px-4 py-2 bg-gray-100 rounded-lg font-bold text-gray-700 mb-4">
+            <div class="">Conto</div>
+            <div class="">Natura</div>
+            <div class="">Destinazione</div>
+            <div class="text-center">Aiuto</div>
+        </div>
+        
+        <main id="quiz-container" class="space-y-4">
+            </main>
+
+        <div id="controls-container" class="text-center mt-8 space-x-4">
+            <button id="submit-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-300 shadow-md">
+                Correggi
+            </button>
+            <button id="restart-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-300 shadow-md hidden">
+                Ricomincia
+            </button>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden opacity-0 z-50">
+        <div id="modal-content" class="modal-content bg-white rounded-lg shadow-2xl p-6 md:p-8 max-w-md w-full text-center opacity-0 scale-95">
+            <h2 class="text-3xl font-bold mb-4">Risultati</h2>
+            <p class="text-5xl font-bold mb-4" id="score-text">0 / 0</p>
+            <p class="text-lg mb-6" id="feedback-text">Feedback...</p>
+            <button id="close-modal-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300">
+                Chiudi
+            </button>
+        </div>
+    </div>
+    
+    <div id="chat-modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-50">
+        <div id="chat-modal-content" class="modal-content bg-white rounded-lg shadow-2xl max-w-lg w-full h-[80vh] md:h-[70vh] flex flex-col opacity-0 scale-95">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200">
+                <h3 class="text-xl font-bold text-gray-900">EconomiaBot</h3>
+                <button id="close-chat-btn" class="text-gray-500 hover:text-gray-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="chat-body" class="flex-1 p-4 space-y-3 overflow-y-auto bg-gray-50 flex flex-col">
+                </div>
+            
+            <div class="p-4 border-t border-gray-200 bg-white">
+                <form id="chat-form" class="flex space-x-2">
+                    <input type="text" id="chat-input" class="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Scrivi la tua risposta..." autocomplete="off">
+                    <button id="chat-send-btn" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 transition duration-300 disabled:opacity-50">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.875L5.999 12zm0 0h7.5" />
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- ELEMENTI DEL DOM ---
+        // (Corrispondono all'HTML qui sopra)
+        const setupScreen = document.getElementById('setup-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const startBtn = document.getElementById('start-btn');
+        const accountCountInput = document.getElementById('account-count');
+        const countError = document.getElementById('count-error');
+        
+        const quizContainer = document.getElementById('quiz-container');
+        const submitBtn = document.getElementById('submit-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        const modal = document.getElementById('result-modal');
+        const modalContent = document.getElementById('modal-content');
+        const scoreText = document.getElementById('score-text');
+        const feedbackText = document.getElementById('feedback-text');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        // Elementi Chatbot
+        const chatModal = document.getElementById('chat-modal');
+        const chatModalContent = document.getElementById('chat-modal-content');
+        const closeChatBtn = document.getElementById('close-chat-btn');
+        const chatBody = document.getElementById('chat-body');
+        const chatForm = document.getElementById('chat-form'); // Aggiunto Form
+        const chatInput = document.getElementById('chat-input');
+        const chatSendBtn = document.getElementById('chat-send-btn');
+
+
+        // --- DATABASE CONTI E OPZIONI ---
+
+        const opzioniNatura = [
+            { value: "VE", text: "Conto economico acceso alle variazioni d'esercizio" },
+            { value: "CP", text: "Conto economico acceso ai costi pluriennali e sue rettifiche" },
+            { value: "CC", text: "Conto economico acceso ai costi di capitale e sue rettifiche" },
+            { value: "CRS", text: "Conto acceso ai costi e ricavi sospesi" },
+            { value: "F", text: "Conto di natura finanziari" }
+        ];
+
+        const opzioniDestinazione = [
+            { value: "SP_ATT", text: "Situazione Patrimoniale - Attività (P / D)" },
+            { value: "SP_PASS", text: "Situazione Patrimoniale - Passività e Netto (P / A)" },
+            { value: "SE_COSTI", text: "Situazione Economica - Costi (E / D)" },
+            { value: "SE_RICAVI", text: "Situazione Economica - Ricavi (E / A)" }
+        ];
+
+        const allAccounts = [
+            // IMMOBILIZZAZIONI IMMATERIALI
+            { id: "costi_impianto", nome: "Costi di impianto", natura: "CP", destinazione: "SP_ATT" },
+            { id: "software", nome: "Software", natura: "CP", destinazione: "SP_ATT" },
+            { id: "avviamento", nome: "Avviamento", natura: "CP", destinazione: "SP_ATT" },
+            { id: "fdo_amm_costi_impianto", nome: "Fondo ammortamento costi di impianto", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_software", nome: "Fondo ammortamento software", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_avviamento", nome: "Fondo ammortamento avviamento", natura: "CP", destinazione: "SP_PASS" },
+            { id: "forn_imm_immateriali_acconti", nome: "Fornitori immobilizz. immateriali c/acconti", natura: "F", destinazione: "SP_ATT" },
+            // IMMOBILIZZAZIONI MATERIALI
+            { id: "fabbricati", nome: "Fabbricati", natura: "CP", destinazione: "SP_ATT" },
+            { id: "impianti_macchinari", nome: "Impianti e macchinari", natura: "CP", destinazione: "SP_ATT" },
+            { id: "attrezzature", nome: "Attrezzature", natura: "CP", destinazione: "SP_ATT" },
+            { id: "macchine_ufficio", nome: "Macchine d'ufficio", natura: "CP", destinazione: "SP_ATT" },
+            { id: "arredamento", nome: "Arredamento", natura: "CP", destinazione: "SP_ATT" },
+            { id: "automezzi", nome: "Automezzi", natura: "CP", destinazione: "SP_ATT" },
+            { id: "imballaggi_durevoli", nome: "Imballaggi durevoli", natura: "CP", destinazione: "SP_ATT" },
+            { id: "fdo_amm_fabbricati", nome: "Fondo ammortamento fabbricati", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_impianti", nome: "Fondo ammort. impianti e macchinari", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_attrezzature", nome: "Fondo ammort. attrezzature", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_macchine_ufficio", nome: "Fondo ammort. macchine d'ufficio", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_arredamento", nome: "Fondo ammort. arredamento", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_automezzi", nome: "Fondo ammort. automezzi", natura: "CP", destinazione: "SP_PASS" },
+            { id: "fdo_amm_imballaggi_durevoli", nome: "Fondo ammort. imballaggi durevoli", natura: "CP", destinazione: "SP_PASS" },
+            { id: "forn_imm_materiali_acconti", nome: "Fornitori immobilizz. materiali c/acconti", natura: "F", destinazione: "SP_ATT" },
+            // IMMOBILIZZAZIONI FINANZIARIE
+            { id: "mutui_attivi", nome: "Mutui attivi", natura: "F", destinazione: "SP_ATT" },
+            // RIMANENZE
+            { id: "materie_consumo", nome: "Materie di consumo", natura: "CRS", destinazione: "SP_ATT" },
+            { id: "merci", nome: "Merci", natura: "CRS", destinazione: "SP_ATT" },
+            { id: "fornitori_acconti", nome: "Fornitori c/acconti", natura: "F", destinazione: "SP_ATT" },
+            // CREDITI COMMERCIALI
+            { id: "crediti_clienti", nome: "Crediti v/clienti", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_commerciali_div", nome: "Crediti commerciali diversi", natura: "F", destinazione: "SP_ATT" },
+            { id: "anticipazioni_clienti", nome: "Anticipazioni per c/clienti", natura: "F", destinazione: "SP_ATT" },
+            { id: "cambiali_attive", nome: "Cambiali attive", natura: "F", destinazione: "SP_ATT" },
+            { id: "effetti_sconto", nome: "Effetti allo sconto", natura: "F", destinazione: "SP_ATT" },
+            { id: "effetti_incasso", nome: "Effetti all'incasso", natura: "F", destinazione: "SP_ATT" },
+            { id: "fatture_da_emettere", nome: "Fatture da emettere", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_insoluti", nome: "Crediti insoluti", natura: "F", destinazione: "SP_ATT" },
+            { id: "cambiali_insolute", nome: "Cambiali insolute", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_liquidare", nome: "Crediti da liquidare", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_acconti_clienti", nome: "Crediti per acconti da clienti", natura: "F", destinazione: "SP_ATT" },
+            { id: "fdo_sval_crediti", nome: "Fondo svalutazione crediti", natura: "F", destinazione: "SP_PASS" },
+            // CREDITI DIVERSI
+            { id: "iva_credito", nome: "IVA ns/credito", natura: "F", destinazione: "SP_ATT" },
+            { id: "iva_acconto", nome: "IVA c/acconto", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_iva", nome: "Crediti per IVA", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_cauzioni", nome: "Crediti per cauzioni", natura: "F", destinazione: "SP_ATT" },
+            { id: "personale_acconti", nome: "Personale c/acconti", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_ist_prev", nome: "Crediti v/istituti previdenzialI", natura: "F", destinazione: "SP_ATT" },
+            { id: "crediti_diversi", nome: "Crediti diversi", natura: "F", destinazione: "SP_ATT" },
+            // DISPONIBILITÀ LIQUIDE
+            { id: "banche_cc_attivi", nome: "Banche c/c attivi", natura: "F", destinazione: "SP_ATT" },
+            { id: "cc_postali", nome: "C/c postali", natura: "F", destinazione: "SP_ATT" },
+            { id: "cassa", nome: "Denaro in cassa", natura: "F", destinazione: "SP_ATT" },
+            { id: "assegni", nome: "Assegni", natura: "F", destinazione: "SP_ATT" },
+            { id: "valori_bollati", nome: "Valori bollati", natura: "F", destinazione: "SP_ATT" },
+            // RATEI E RISCONTI ATTIVI
+            { id: "ratei_attivi", nome: "Ratei attivi", natura: "F", destinazione: "SP_ATT" },
+            { id: "risconti_attivi", nome: "Risconti attivi", natura: "CRS", destinazione: "SP_ATT" },
+            // PATRIMONIO NETTO
+            { id: "patrimonio_netto", nome: "Patrimonio Netto", natura: "CC", destinazione: "SP_PASS" },
+            { id: "utile_esercizio", nome: "Utile d'esercizio", natura: "CC", destinazione: "SP_PASS" },
+            { id: "perdita_esercizio", nome: "Perdita d'esercizio", natura: "CC", destinazione: "SP_ATT" },
+            { id: "prelevamenti_extra", nome: "Prelevamenti extragestione", natura: "CC", destinazione: "SP_ATT" },
+            { id: "titolare_ritenute", nome: "Titolare c/ritenute subite", natura: "CC", destinazione: "SP_ATT" },
+            // FONDI PER RISCHI E ONERI
+            { id: "fdo_imposte", nome: "Fondo per imposte", natura: "F", destinazione: "SP_PASS" },
+            { id: "fdo_resp_civile", nome: "Fondo responsabilità civile", natura: "F", destinazione: "SP_PASS" },
+            { id: "fdo_manutenzioni", nome: "Fondo manutenzioni programmate", natura: "F", destinazione: "SP_PASS" },
+            // TFR
+            { id: "debiti_tfr", nome: "Debiti per TFR", natura: "F", destinazione: "SP_PASS" },
+            // DEBITI FINANZIARI
+            { id: "mutui_passivi", nome: "Mutui passivi", natura: "F", destinazione: "SP_PASS" },
+            { id: "banche_sovvenzioni", nome: "Banche c/sovvenzioni", natura: "F", destinazione: "SP_PASS" },
+            { id: "banche_cc_passivi", nome: "Banche c/c passivi", natura: "F", destinazione: "SP_PASS" },
+            { id: "banche_riba_sbf", nome: "Banche c/ri.ba. SBF", natura: "F", destinazione: "SP_PASS" },
+            { id: "banche_cambiali_incasso", nome: "Banche c/cambiali all'incasso", natura: "F", destinazione: "SP_PASS" },
+            { id: "banche_anticipi_fatture", nome: "Banche c/anticipi su fatture", natura: "F", destinazione: "SP_PASS" },
+            { id: "banche_interessi_maturati", nome: "Banche c/interessi maturati", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_altri_finanziatori", nome: "Debiti v/altri finanziatori", natura: "F", destinazione: "SP_PASS" },
+            // DEBITI COMMERCIALI
+            { id: "debiti_fornitori", nome: "Debiti v/fornitori", natura: "F", destinazione: "SP_PASS" },
+            { id: "cambiali_passive", nome: "Cambiali passive", natura: "F", destinazione: "SP_PASS" },
+            { id: "fatture_ricevere", nome: "Fatture da ricevere", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_liquidare", nome: "Debiti da liquidare", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_acconti_fornitori", nome: "Debiti per acconti a fornitori", natura: "F", destinazione: "SP_PASS" },
+            { id: "clienti_acconti", nome: "Clienti c/acconti", natura: "F", destinazione: "SP_PASS" },
+            // DEBITI DIVERSI
+            { id: "iva_debito", nome: "IVA ns/debito", natura: "F", destinazione: "SP_PASS" },
+            { id: "erario_ritenute", nome: "Erario c/ritenute da versare", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_iva", nome: "Debiti per IVA", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_fiscali_div", nome: "Debiti fiscali diversi", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_cauzioni", nome: "Debiti per cauzioni", natura: "F", destinazione: "SP_PASS" },
+            { id: "personale_retribuzioni", nome: "Personale c/retribuzioni", natura: "F", destinazione: "SP_PASS" },
+            { id: "personale_liquidazione", nome: "Personale c/liquidazione", natura: "F", destinazione: "SP_PASS" },
+            { id: "cedente_cessione", nome: "Cedente c/cessione", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_ist_prev", nome: "Debiti v/istituti previdenziali", natura: "F", destinazione: "SP_PASS" },
+            { id: "debiti_diversi", nome: "Debiti diversi", natura: "F", destinazione: "SP_PASS" },
+            // RATEI E RISCONTI PASSIVI
+            { id: "ratei_passivi", nome: "Ratei passivi", natura: "F", destinazione: "SP_PASS" },
+            { id: "risconti_passivi", nome: "Risconti passivi", natura: "CRS", destinazione: "SP_PASS" },
+            // VENDITE E PRESTAZIONI
+            { id: "merci_vendite", nome: "Merci c/vendite", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "merci_vendite_online", nome: "Merci c/vendite online", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "resi_vendite", nome: "Resi su vendite", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "ribassi_abbuoni_passivi", nome: "Ribassi e abbuoni passivi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "premi_vendite", nome: "Premi su vendite", natura: "VE", destinazione: "SE_COSTI" },
+            // RICAVI E PROVENTI DIVERSI
+            { id: "fitti_attivi", nome: "Fitti attivi", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "proventi_vari", nome: "Proventi vari", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "arrotondamenti_attivi", nome: "Arrotondamenti attivi", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "plusvalenze", nome: "Plusvalenze", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "sopravvenienze_attive", nome: "Sopravvenienze attive", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "insussistenze_attive", nome: "Insussistenze attive", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "rimborsi_costi_vendita", nome: "Rimborsi costi di vendita", natura: "VE", destinazione: "SE_RICAVI" },
+            // COSTO DEL VENDUTO
+            { id: "merci_acquisti", nome: "Merci c/acquisti", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "materie_consumo_acquisti", nome: "Materie di consumo c/acquisti", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "merci_apporti", nome: "Merci c/apporti", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "resi_acquisti", nome: "Resi su acquisti", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "ribassi_abbuoni_attivi", nome: "Ribassi e abbuoni attivi", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "premi_acquisti", nome: "Premi su acquisti", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "merci_esistenze_iniziali", nome: "Merci c/esistenze iniziali", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "materie_consumo_esistenze_iniziali", nome: "Materie di consumo c/esistenze iniziali", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "merci_rimanenze_finali", nome: "Merci c/rimanenze finali", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "materie_consumo_rimanenze_finali", nome: "Materie di consumo c/rimanenze finali", natura: "VE", destinazione: "SE_RICAVI" },
+            // COSTI PER SERVIZI
+            { id: "costi_trasporto", nome: "Costi di trasporto", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_energia", nome: "Costi per energia", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "pubblicita", nome: "Pubblicità", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "consulenze", nome: "Consulenze", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_postali", nome: "Costi postali", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_telefonici", nome: "Costi telefonici", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "assicurazioni", nome: "Assicurazioni", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_vigilanza", nome: "Costi di vigilanza", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_locali", nome: "Costi per i locali", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_esercizio_automezzi", nome: "Costi esercizio automezzi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "manutenzioni_riparazioni", nome: "Manutenzioni e riparazioni", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "provvigioni_passive", nome: "Provvigioni passive", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_incasso", nome: "Costi d'incasso", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "commissioni_bancarie", nome: "Commissioni bancarie", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_tenuta_cc", nome: "Costi di tenuta c/c", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_etichettatura", nome: "Costi di etichettatura", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "abbonamenti", nome: "Abbonamenti", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "costi_servizi", nome: "Costi per servizi", natura: "VE", destinazione: "SE_COSTI" },
+            // COSTI PER GODIMENTO BENI DI TERZI
+            { id: "fitti_passivi", nome: "Fitti passivi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "canoni_leasing", nome: "Canoni di leasing", natura: "VE", destinazione: "SE_COSTI" },
+            // COSTI PER IL PERSONALE
+            { id: "salari_stipendi", nome: "Salari e stipendi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "oneri_sociali", nome: "Oneri sociali", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "tfr_costo", nome: "TFR", natura: "VE", destinazione: "SE_COSTI" },
+            // AMMORTAMENTI IMMOB. IMMATERIALI
+            { id: "amm_costi_impianto", nome: "Ammortamento costi di impianto", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_software", nome: "Ammortamento software", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_avviamento", nome: "Ammortamento avviamento", natura: "VE", destinazione: "SE_COSTI" },
+            // AMMORTAMENTI IMMOB. MATERIALI
+            { id: "amm_fabbricati", nome: "Ammortamento fabbricati", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_impianti_macchinari", nome: "Ammortamento impianti e macchinari", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_attrezzature", nome: "Ammortamento attrezzature", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_macchine_ufficio", nome: "Ammortamento macchine d'ufficio", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_arredamento", nome: "Ammortamento arredamento", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_automezzi", nome: "Ammortamento automezzi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "amm_imballaggi_durevoli", nome: "Ammortamento imballaggi durevoli", natura: "VE", destinazione: "SE_COSTI" },
+            // SVALUTAZIONI
+            { id: "svalutazione_crediti", nome: "Svalutazione crediti", natura: "VE", destinazione: "SE_COSTI" },
+            // ACCANTONAMENTI PER RISCHI
+            { id: "acc_resp_civile", nome: "Accantonamento per responsabilità civile", natura: "VE", destinazione: "SE_COSTI" },
+            // ALTRI ACCANTONAMENTI
+            { id: "acc_manutenzioni", nome: "Accantonamento per manutenzioni programmate", natura: "VE", destinazione: "SE_COSTI" },
+            // ONERI DIVERSI
+            { id: "oneri_fiscali_div", nome: "Oneri fiscali diversi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "oneri_vari", nome: "Oneri vari", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "perdite_crediti", nome: "Perdite su crediti", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "acc_imposte_indirette", nome: "Accantonamento per imposte indirette", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "arrotondamenti_passivi", nome: "Arrotondamenti passivi", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "minusvalenze", nome: "Minusvalenze", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "sopravvenienze_passive", nome: "Sopravvenienze passive", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "insussistenze_passive", nome: "Insussistenze passive", natura: "VE", destinazione: "SE_COSTI" },
+            // PROVENTI FINANZIARI
+            { id: "interessi_attivi_clienti", nome: "Interessi attivi v/clienti", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "interessi_attivi_bancari", nome: "Interessi attivi bancari", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "interessi_attivi_postali", nome: "Interessi attivi postali", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "interessi_attivi_mutui", nome: "Interessi attivi su mutui", natura: "VE", destinazione: "SE_RICAVI" },
+            { id: "proventi_finanziari_div", nome: "Proventi finanziari diversi", natura: "VE", destinazione: "SE_RICAVI" },
+            // ONERI FINANZIARI
+            { id: "interessi_passivi_fornitori", nome: "Interessi passivi v/fornitori", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "interessi_passivi_bancari", nome: "Interessi passivi bancari", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "sconti_passivi_bancari", nome: "Sconti passivi bancari", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "interessi_passivi_mutui", nome: "Interessi passivi su mutui", natura: "VE", destinazione: "SE_COSTI" },
+            { id: "oneri_finanziari_div", nome: "Oneri finanziari diversi", natura: "VE", destinazione: "SE_COSTI" }
+        ];
+
+        // ===================================================================
+        //               *** SYSTEM PROMPT (Tutor Socratico) ***
+        // ===================================================================
+        const systemPrompt = `
+            **Ruolo:** Sei "EconomiaBot", un tutor di Economia Aziendale esperto e paziente.
+            
+            **Utente:** Uno studente del terzo anno di un istituto tecnico economico (16-17 anni).
+            
+            **Obiettivo Principale:** Aiutare lo studente a capire la *natura* (Economica o Finanziaria) e la *destinazione* (Stato Patrimoniale o Conto Economico) dei conti usati in partita doppia, SENZA DARE LA SOLUZIONE DIRETTA.
+            
+            **Contesto Specifico:** Lo studente ti interpella dopo aver sbagliato la classificazione di un conto in un quiz. Il tuo primo messaggio (che sarà pre-impostato nel quiz) mostrerà la soluzione corretta. Il tuo compito è spiegare *perché* quella soluzione è corretta, guidando lo studente al ragionamento.
+            
+            **Regole di Comportamento Obbligatorie:**
+            
+            1.  **NON DARE MAI LA SOLUZIONE:** Anche se lo studente la chiede, non devi mai dire "Il conto X è Y". Lo studente ha già la soluzione; il tuo compito è spiegare il *perché*.
+            2.  **USA LA DOMANDA GUIDA:** La tua tecnica di insegnamento principale deve essere la *domanda maieutica* (socratica). Guida lo studente con domande mirate.
+            3.  **NON USARE TERMINI COMPLICATI:** Evita linguaggio accademico. Usa sinonimi semplici.
+                * *NO:* "Rileva una permutazione finanziaria..."
+                * *SÌ:* "Questo conto registra uno scambio di denaro o di crediti/debiti?"
+                * *NO:* "Misura un componente negativo di reddito..."
+                * *SÌ:* "Questo conto rappresenta un costo per l'azienda?"
+            4.  **SEGUI QUESTO FLUSSO LOGICO:**
+                * **Step 1: La Natura (Finanziaria o Economica?).**
+                    * *Domanda chiave:* "Questo conto ('Nome Conto') misura...
+                        a) ...denaro, crediti (soldi che devi ricevere) o debiti (soldi che devi dare)? (Natura Finanziaria)
+                        b) ...un costo, un ricavo o un capitale dell'azienda? (Natura Economica)"
+                * **Step 2: La Destinazione (Stato Patrimoniale o Conto Economico?).**
+                    * *Domanda chiave (basata sullo Step 1):*
+                        * *Se è Finanziario:* "Ok. E questo denaro/credito/debito...
+                            a) ...è un 'debito' o un 'credito' che esiste ancora alla fine dell'anno? (Stato Patrimoniale)
+                            b) ...è un costo o un ricavo dell'anno? (Conto Economico)" -> *Questa opzione è rara per i finanziari puri, ma serve per gli interessi.*
+                        * *Se è Economico:* "Perfetto. E questo costo/ricavo...
+                            a) ...si 'spegne' nell'anno (è un costo/ricavo di esercizio)? (Conto Economico)
+                            b) ...è un 'investimento' che dura più anni (costo pluriennale) o fa parte del capitale dell'azienda? (Stato Patrimoniale)"
+            5.  **PERSONALIZZA LE DOMANDE:** Non usare sempre le stesse parole. Adatta le domande al conto specifico.
+                * *Esempio (Merci c/acquisti):* "Ciao! Ho visto che hai la soluzione. Ragioniamoci su. Quando compri della merce ('Merci c/acquisti'), l'azienda sta sostenendo un... (completa tu)?" (Risposta attesa: un costo). "Esatto! E un costo che si usa nell'anno, dove pensi che vada, nel documento che fa la 'foto' dei beni (Stato Patrimoniale) o in quello che fa il 'film' dei costi e ricavi (Conto Economico)?"
+                * *Esempio (Banca c/c):* "Ciao! Ragioniamoci sul conto 'Banca c/c'. Cosa rappresenta per l'azienda? Soldi che ha, soldi che deve dare, o un costo?" (Risposta attesa: soldi che ha). "Perfetto. I soldi che l'azienda *ha* (la sua 'cassaforte' in banca) sono parte del suo patrimonio. Quindi, dove li mettiamo? Nel 'film' dei costi/ricavi (Conto Economico) o nella 'fotografia' del patrimonio (Stato Patrimoniale)?"
+            6.  **TONO:** Sii incoraggiante, amichevole e paziente. Sei un compagno di studio, non un esaminatore. Usa emoji leggere (es. 🤔, 👍, 💡).
+            
+            **Avvio della Conversazione (Gestito dall'App):**
+            *L'app mostrerà la soluzione corretta.*
+            *Tu (EconomiaBot) inizierai subito dopo con una domanda guida basata sul conto specifico, seguendo gli esempi sopra.*
+        `;
+
+
+        // --- STATO DEL GIOCO ---
+        let currentQuizAccounts = [];
+        let quizSize = 20; // Default
+        let currentChatHistory = []; 
+        let currentAccountInChat = null; 
+
+        // --- FUNZIONI QUIZ ---
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function getReadableText(value, type) {
+            const options = type === 'natura' ? opzioniNatura : opzioniDestinazione;
+            const found = options.find(opt => opt.value === value);
+            return found ? found.text : 'Sconosciuto';
+        }
+
+        function getQuizAccounts() {
+            const shuffled = shuffleArray([...allAccounts]);
+            currentQuizAccounts = shuffled.slice(0, quizSize);
+        }
+
+        function renderQuiz() {
+            quizContainer.querySelectorAll('.quiz-row').forEach(row => row.remove());
+
+            currentQuizAccounts.forEach((account, index) => {
+                const row = document.createElement('div');
+                row.id = `row-${index}`;
+                row.className = 'quiz-row grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border-b border-gray-200 items-center rounded-lg transition-colors duration-300';
+
+                // Colonna 1: Nome Conto
+                const nameCol = `
+                    <div class="flex flex-col">
+                        <label class="md:hidden text-sm font-semibold mb-1 text-gray-600">Conto:</label>
+                        <span class="font-medium text-gray-900 text-lg">${account.nome}</span>
+                    </div>`;
+
+                // Colonna 2: Select Natura
+                const naturaSelectOptions = opzioniNatura.map(opt => 
+                    `<option value="${opt.value}">${opt.text}</option>`
+                ).join('');
+                const naturaCol = `
+                    <div class="flex flex-col">
+                        <label for="natura-select-${index}" class="md:hidden text-sm font-semibold mb-1 text-gray-600">Natura del Conto:</label>
+                        <select id="natura-select-${index}" class="natura-select custom-select w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="">Seleziona la natura...</option>
+                            ${naturaSelectOptions}
+                        </select>
+                        <div id="solution-natura-${index}" class="hidden mt-2 text-sm"></div>
+                    </div>`;
+                
+                // Colonna 3: Select Destinazione
+                const destinazioneSelectOptions = opzioniDestinazione.map(opt => 
+                    `<option value="${opt.value}">${opt.text}</option>`
+                ).join('');
+                const destinazioneCol = `
+                    <div class="flex flex-col">
+                        <label for="destinazione-select-${index}" class="md:hidden text-sm font-semibold mb-1 text-gray-600">Destinazione:</label>
+                        <select id="destinazione-select-${index}" class="destinazione-select custom-select w-full p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="">Seleziona la destinazione...</option>
+                            ${destinazioneSelectOptions}
+                        </select>
+                        <div id="solution-destinazione-${index}" class="hidden mt-2 text-sm"></div>
+                    </div>`;
+                
+                // Colonna 4: Pulsante Aiuto
+                const helpCol = `
+                    <div class="flex flex-col items-start md:items-center">
+                        <label class="md:hidden text-sm font-semibold mb-1 text-gray-600">Aiuto:</label>
+                        <button id="help-btn-${index}" class="help-button hidden bg-blue-100 text-blue-700 rounded-full p-2 hover:bg-blue-200 transition">
+                            ❓
+                        </button>
+                    </div>`;
+
+                row.innerHTML = nameCol + naturaCol + destinazioneCol + helpCol;
+                quizContainer.appendChild(row);
+
+                const helpButton = row.querySelector(`#help-btn-${index}`);
+                helpButton.onclick = () => {
+                    currentAccountInChat = account; 
+                    showChatModal(account);
+                };
+            });
+        }
+        
+        function startQuiz() {
+            let count = parseInt(accountCountInput.value, 10);
+            countError.classList.add('hidden');
+
+            if (isNaN(count) || count < 20) {
+                countError.textContent = `Inserire un numero valido. Minimo 20.`;
+                countError.classList.remove('hidden');
+                return;
+            }
+            
+            if (count > allAccounts.length) {
+                countError.textContent = `Numero massimo di conti disponibili: ${allAccounts.length}.`;
+                countError.classList.remove('hidden');
+                count = allAccounts.length; 
+            }
+
+            quizSize = count;
+            accountCountInput.value = quizSize; 
+
+            setupScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+
+            getQuizAccounts();
+            renderQuiz();
+
+            submitBtn.classList.remove('hidden');
+            restartBtn.classList.add('hidden'); 
+        }
+
+        function checkAnswers() {
+            let score = 0;
+            
+            currentQuizAccounts.forEach((account, index) => {
+                const rowElement = document.getElementById(`row-${index}`);
+                const naturaSelect = document.getElementById(`natura-select-${index}`);
+                const destinazioneSelect = document.getElementById(`destinazione-select-${index}`);
+                const helpButton = document.getElementById(`help-btn-${index}`);
+
+                const solutionNatura = document.getElementById(`solution-natura-${index}`);
+                const solutionDestinazione = document.getElementById(`solution-destinazione-${index}`);
+
+                const userNatura = naturaSelect.value;
+                const userDestinazione = destinazioneSelect.value;
+
+                naturaSelect.disabled = true;
+                destinazioneSelect.disabled = true;
+
+                // Rimuove stili
+                rowElement.classList.remove('row-correct', 'row-incorrect');
+                naturaSelect.classList.remove('border-green-500', 'border-red-500');
+                destinazioneSelect.classList.remove('border-green-500', 'border-red-500');
+                helpButton.classList.add('hidden');
+                solutionNatura.classList.add('hidden');
+                solutionDestinazione.classList.add('hidden');
+
+                const isNaturaCorrect = userNatura === account.natura;
+                const isDestinazioneCorrect = userDestinazione === account.destinazione;
+
+                if (isNaturaCorrect && isDestinazioneCorrect) {
+                    score++;
+                    rowElement.classList.add('row-correct');
+                    naturaSelect.classList.add('border-green-500');
+                    destinazioneSelect.classList.add('border-green-500');
+                } else {
+                    rowElement.classList.add('row-incorrect');
+                    helpButton.classList.remove('hidden'); 
+
+                    if (!isNaturaCorrect) {
+                        naturaSelect.classList.add('border-red-500');
+                    }
+                    if (!isDestinazioneCorrect) {
+                        destinazioneSelect.classList.add('border-red-500');
+                    }
+                }
+            });
+
+            showResultModal(score);
+            submitBtn.classList.add('hidden');
+            restartBtn.classList.remove('hidden');
+        }
+
+        function showResultModal(score) {
+            scoreText.textContent = `${score} / ${quizSize}`;
+            
+            let feedback = "";
+            const percentage = (score / quizSize) * 100;
+            if (percentage === 100) {
+                feedback = "Perfetto! Conoscenza impeccabile!";
+            } else if (percentage >= 80) {
+                feedback = "Ottimo lavoro! Ci sei quasi.";
+            } else if (percentage >= 60) {
+                feedback = "Buon risultato! Rivedi gli errori.";
+            } else if (percentage >= 40) {
+                feedback = "Sufficiente, ma puoi fare di meglio. Coraggio!";
+            } else {
+                feedback = "Studia ancora. Rivedi le definizioni e riprova.";
+            }
+            feedbackText.textContent = feedback;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+
+        function hideResultModal() {
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); 
+        }
+        
+        function restartQuiz() {
+            hideResultModal();
+            
+            setTimeout(() => {
+                quizScreen.classList.add('hidden');
+                setupScreen.classList.remove('hidden');
+            }, 300);
+        }
+
+
+        // --- FUNZIONI CHATBOT ---
+
+        async function showChatModal(account) {
+            chatBody.innerHTML = '';
+            chatInput.value = '';
+            currentChatHistory = [];
+
+            const naturaCorretta = getReadableText(account.natura, 'natura');
+            const destinazioneCorretta = getReadableText(account.destinazione, 'destinazione');
+            
+            addMessageToChat(
+                `💡 **Soluzione Corretta per "${account.nome}":**
+                 <br><strong>Natura:</strong> ${naturaCorretta}
+                 <br><strong>Destinazione:</strong> ${destinazioneCorretta}`, 
+                'solution'
+            );
+
+            const firstPrompt = `L'utente ha sbagliato il conto "${account.nome}". La soluzione corretta è (Natura: ${naturaCorretta}, Destinazione: ${destinazioneCorretta}). Inizia la conversazione (come da tue regole) per aiutarlo a capire il *perché*, partendo dalla Natura del conto.`;
+            
+            currentChatHistory.push({ role: "user", parts: [{ text: firstPrompt }] });
+            
+            chatModal.classList.remove('hidden');
+            setTimeout(() => {
+                chatModal.classList.remove('opacity-0');
+                chatModalContent.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+
+            addMessageToChat('...', 'bot-loading');
+            
+            try {
+                const botResponse = await callGemini(currentChatHistory);
+                
+                chatBody.querySelector('.chat-bubble-bot.loading')?.remove();
+                addMessageToChat(botResponse, 'bot');
+                currentChatHistory.push({ role: "model", parts: [{ text: botResponse }] });
+
+            } catch (error) {
+                console.error("Errore API Gemini:", error);
+                chatBody.querySelector('.chat-bubble-bot.loading')?.remove();
+                addMessageToChat('Ops! Sembra che EconomiaBot non sia raggiungibile al momento. Riprova più tardi.', 'bot');
+            }
+        }
+
+        function hideChatModal() {
+            chatModal.classList.add('opacity-0');
+            chatModalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                chatModal.classList.add('hidden');
+            }, 300); 
+        }
+
+        function addMessageToChat(message, sender) {
+            const bubble = document.createElement('div');
+            
+            if (sender === 'bot-loading') {
+                bubble.className = 'chat-bubble chat-bubble-bot loading p-3 rounded-lg self-start max-w-xs md:max-w-md';
+                bubble.innerHTML = '<div class="dot-flashing"><div></div><div></div><div></div></div>';
+            } else if (sender === 'user') {
+                bubble.className = 'chat-bubble chat-bubble-user bg-gray-200 text-gray-800 p-3 rounded-lg self-end max-w-xs md:max-w-md break-words';
+                bubble.textContent = message;
+            } else if (sender === 'solution') {
+                bubble.className = 'chat-bubble chat-bubble-solution bg-yellow-100 text-yellow-800 p-3 rounded-lg self-start max-w-xs md:max-w-md break-words';
+                bubble.innerHTML = message; 
+            } else { // 'bot'
+                bubble.className = 'chat-bubble chat-bubble-bot bg-blue-100 text-blue-800 p-3 rounded-lg self-start max-w-xs md:max-w-md break-words';
+                let formattedMessage = message
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n/g, '<br>');
+                bubble.innerHTML = formattedMessage;
+            }
+            
+            chatBody.appendChild(bubble);
+            chatBody.scrollTop = chatBody.scrollHeight; 
+        }
+        
+        async function handleChatSubmit(userMessage) {
+            if (userMessage.trim() === '') return;
+
+            addMessageToChat(userMessage, 'user');
+            currentChatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+            chatInput.value = '';
+
+            addMessageToChat('...', 'bot-loading');
+
+            try {
+                const botResponse = await callGemini(currentChatHistory);
+                
+                chatBody.querySelector('.chat-bubble-bot.loading')?.remove();
+                addMessageToChat(botResponse, 'bot');
+                currentChatHistory.push({ role: "model", parts: [{ text: botResponse }] });
+
+            } catch (error) {
+                console.error("Errore API Gemini:", error);
+                chatBody.querySelector('.chat-bubble-bot.loading')?.remove();
+                addMessageToChat('Ops! Sembra che ci sia stato un errore. Riprova.', 'bot');
+            }
+        }
+
+
+        // --- FUNZIONE API GEMINI CON RETRY ---
+
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429) { 
+                        throw new Error('Rate limit exceeded');
+                    }
+                    if (!response.ok) {
+                        if (response.status >= 500 && response.status < 600) {
+                            throw new Error(`Server error: ${response.status}`);
+                        } else {
+                            return response;
+                        }
+                    }
+                    return response;
+                } catch (error) {
+                    console.warn(`Tentativo ${i + 1} fallito: ${error.message}`);
+                    if (i === retries - 1) throw error; 
+                    await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+                }
+            }
+        }
+
+        // ===================================================================
+        //               *** FUNZIONE callGemini CORRETTA ***
+        // Questa funzione chiama il tuo "ponte" API (/api/chat)
+        // e NON contiene la chiave API. È sicura.
+        // ===================================================================
+        
+        async function callGemini(chatHistory) {
+            const apiUrl = '/api/chat'; // <-- Questo è l'URL del tuo "ponte"
+
+            const payload = {
+                contents: chatHistory,
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 1,
+                    topP: 1,
+                    maxOutputTokens: 2048,
+                }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            try {
+                const response = await fetchWithRetry(apiUrl, options);
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    console.error("Errore ricevuto da /api/chat:", result);
+                    const errorMsg = result.error?.message || JSON.stringify(result);
+                    throw new Error(errorMsg);
+                }
+
+                if (result.candidates && result.candidates.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    return text;
+                } else if (result.promptFeedback) {
+                    console.warn("Feedback prompt:", result.promptFeedback);
+                    return "Non sono riuscito a elaborare la richiesta a causa di un filtro di sicurezza. Riformula la tua domanda.";
+                }
+                
+                throw new Error("Risposta API non valida.");
+                
+            } catch (error) {
+                console.error("Errore API non recuperabile:", error);
+                throw error;
+            }
+        }
+
+
+        // --- EVENT LISTENERS ---
+        startBtn.addEventListener('click', startQuiz);
+        submitBtn.addEventListener('click', checkAnswers);
+        restartBtn.addEventListener('click', restartQuiz);
+        closeModalBtn.addEventListener('click', hideResultModal);
+        
+        // Listener per il Chatbot
+        closeChatBtn.addEventListener('click', hideChatModal);
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleChatSubmit(chatInput.value);
+        });
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault();
+                handleChatSubmit(chatInput.value);
+            }
+        });
+
+    </script>
+</body>
+</html>
